@@ -172,6 +172,47 @@ test('lookupTool / lookupAction：查不到就是 undefined / null，不抛', ()
   assert.equal(lookupAction('analyze').tool, 'screen_analyze')
 })
 
+test('apply：真实挂载路径注册五个工具，并说明用的是哪份 ffmpeg', async () => {
+  const { apply } = await import('../index.mjs')
+  const registered = []
+  const lines = []
+  let injected = null
+  const ctx = {
+    logger: {
+      info: (message) => lines.push(`info ${message}`),
+      warn: (message) => lines.push(`warn ${message}`),
+      error: (message) => lines.push(`error ${message}`),
+    },
+    inject: (services, callback) => {
+      injected = services
+      callback({ tools: { register: (definition) => registered.push(definition) }, get: () => undefined })
+    },
+  }
+  apply(ctx, {})
+  assert.deepEqual(injected, ['tools'])
+  assert.deepEqual(
+    registered.map((definition) => definition.name),
+    TOOL_ORDER,
+  )
+  // The activation line is the one fact an operator needs: which ffmpeg, and from where.
+  const ffmpegLine = lines.find((line) => line.includes('ffmpeg =') || line.includes('没有找到 ffmpeg'))
+  assert.ok(ffmpegLine !== undefined, `没有报告 ffmpeg 来源：${lines.join(' | ')}`)
+})
+
+test('apply：配置非法时不注册任何工具，并且报出字段名', async () => {
+  const { apply } = await import('../index.mjs')
+  const registered = []
+  const lines = []
+  const ctx = {
+    logger: { info: (m) => lines.push(m), warn: (m) => lines.push(m), error: (m) => lines.push(m) },
+    inject: (_services, callback) => callback({ tools: { register: (definition) => registered.push(definition) }, get: () => undefined }),
+  }
+  apply(ctx, { maxConcurrent: 99 })
+  assert.equal(registered.length, 0)
+  assert.ok(lines.some((line) => line.includes('config.maxConcurrent')))
+  assert.ok(lines.some((line) => line.includes('没有注册任何工具') || line.includes('配置无效')))
+})
+
 test('toLosslessJson：undefined / NaN / -0 被替换成 JSON 能活下来的值', () => {
   const converted = toLosslessJson({ a: undefined, b: NaN, c: -0, d: [1, Infinity], e: { f: 2 } })
   assert.deepEqual(converted, { a: null, b: null, c: 0, d: [1, null], e: { f: 2 } })
