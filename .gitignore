@@ -1,0 +1,13 @@
+# Vendored binaries and models: large, machine-specific, re-fetchable.
+vendor/
+
+# Scratch: capture work directories, analysis products, downloaded archives.
+tmp/
+out/
+
+node_modules/
+*.log
+
+# Windows junk that appears the moment anything is opened.
+Thumbs.db
+desktop.ini

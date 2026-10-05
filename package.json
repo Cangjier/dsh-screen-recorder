@@ -1,0 +1,36 @@
+{
+  "name": "dsh-screen-recorder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DSH 插件：录屏，然后把录屏读成结构化语义——时间轴分段 + OCR 文字 + 区域语义分割 + YOLO 目标检测 + 语音转文字，融成一份可检索的 JSON。插件只执行与测量，判断归 DSH。",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./index.mjs",
+    "./core": "./src/core/index.mjs",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": [
+    "index.mjs",
+    "src",
+    "cordis.patch.yml",
+    "docs",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "os": [
+    "win32"
+  ],
+  "scripts": {
+    "test": "node --test \"tests/*.test.mjs\"",
+    "check": "node --check index.mjs"
+  }
+}

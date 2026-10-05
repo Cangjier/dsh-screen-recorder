@@ -1,0 +1,85 @@
+# dsh-screen-recorder bundle patch.
+#
+# 它只贡献一行，且不依赖任何特定 composition：
+#
+#   dsh-screen-recorder  Host 插件：注册 `screen_*` 工具
+#               （screen_env / screen_setup / screen_record / screen_analyze / screen_guide）。
+#               需要 `tools` 服务，在挂载了 @deepseek-ai/dsh-tools 的任何 profile 里都安全。
+#
+# 配置分三类，没有任何必填项：
+#   - 路径类（ffmpegPath / ffprobePath / modelPath / pluginPath）留空即自动推导，换机器不用改
+#   - 行为类（maxConcurrent / analysis / detector 阈值）留空即用代码里的默认值
+#   - 集成类（ocr / detector / asr）留空即"装了就用，没装就退回自带能力或明确说明缺什么"
+
+- insert:
+    - id: dsh-screen-recorder
+      name: 'dsh-screen-recorder'
+      config:
+        # ffmpeg / ffprobe 的显式路径。null = 依次找 DSH_FFMPEG/DSH_FFPROBE 环境变量 →
+        # 共享目录 ~/.dsh-plugins/ffmpeg/bin → 本插件 vendor/ffmpeg/bin →
+        # 同级插件的 vendor/ffmpeg/bin → PATH
+        ffmpegPath: null
+        ffprobePath: null
+
+        # 相对路径的基准目录。null = 每次调用给的 cwd，没给就用进程工作目录
+        projectRoot: null
+
+        # 同时最多跑几个 ffmpeg 进程。2 是桌面上"两个都还能推进"的上限
+        maxConcurrent: 2
+
+        # 单次编码 / 分析的默认超时（毫秒）。超时会杀掉进程并删掉半成品
+        defaultTimeoutMs: 600000
+
+        # 结构化语义分析（screen_analyze）的默认值。真实默认值写在 src/core/analysis.mjs，
+        # 这里只是把它们挪到配置里，留空即不覆盖
+        analysis:
+          # 两帧平均亮度差（0–255）超过多少算一次切换。整屏切换通常 40 以上，调小切得更碎
+          sceneThreshold: 8
+          # 最短段 / 最长段 / 太短的段并入前一段
+          minSegmentSec: 1
+          maxSegmentSec: 30
+          mergeShortSec: 0.7
+          # 时间轴以每秒几帧来测量
+          fps: 4
+          # 分析帧的长边（像素）。越小越快，文字识别会另取更大的关键帧
+          maxSide: 320
+          # 最多保留多少段关键帧、多少段做文字识别
+          maxKeyframes: 120
+          maxSegments: 400
+          ocrMaxFrames: 60
+          # 最多给多少段跑 YOLO 检测
+          detectMaxFrames: 40
+          # 区域语义分割的瓦片边长（像素）
+          tileSize: 16
+
+        # 文字识别
+        ocr:
+          # auto（同级 dsh-ocr 的离线引擎优先，失败退回 Windows 自带）/ sibling / winrt / off
+          provider: auto
+          # ch / cht / en / japan / korean，或直接的 BCP-47 标签
+          language: ch
+          # 显式指定同级 dsh-ocr 的目录。null = 在本插件的上一级、上两级里找 dsh-ocr
+          pluginPath: null
+          # 识别前把关键帧放大多少倍（1–3）。小字屏录靠它，"auto" 按长边判断
+          scale: auto
+
+        # YOLO 目标检测
+        detector:
+          # 显式指定一个 .onnx。null = 用共享目录 ~/.dsh-plugins/models/yolo 里装的那一份
+          modelPath: null
+          # 置信度阈值 / NMS 的 IoU 阈值 / 推理时的输入长边 / 线程数
+          minScore: 0.35
+          iou: 0.45
+          maxSide: 640
+          threads: 1
+
+        # 语音转文字：走宿主（DSH）的 speechToText 服务，本地 SenseVoice
+        asr:
+          # 关掉即完全不碰音频，结构里 speech 会写明原因
+          enabled: true
+          # null = 自动判别语种；也可以写 zh / en / yue / ja / ko
+          language: null
+          # 单次识别请求的音频上限（字节）。宿主默认 4 MB ≈ 131 秒
+          maxAudioBytes: 4194304
+          # 一段录屏最多拆成多少次识别请求，防止长录屏把时间花在识别上
+          maxIntervals: 60
